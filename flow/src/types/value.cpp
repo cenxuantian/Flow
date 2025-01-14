@@ -241,10 +241,26 @@ bool value::operator==(const value &other) const {
 
 bool value::is_null() const { return this->type_ == types::UNDEFINED; }
 
-std::string value::to_string() const {
+std::string value::to_string(int level) const {
   switch (type_) {
-  case types::OBJECT:
-    return "<object: size = " + std::to_string(as<object>().size()) + ">";
+  case types::OBJECT: {
+
+    auto &obj_ref = as<object>();
+    auto obj_size = obj_ref.size();
+    std::string ret = "<object: size = " + std::to_string(obj_size) + ">\n{\n";
+    size_t count = 0;
+    for (auto &i : obj_ref) {
+      if (count == obj_size - 1) {
+        ret += "\"" + i.first + "\":" + i.second.to_string(level + 1);
+      } else {
+        ret += "\"" + i.first + "\":" + i.second.to_string(level + 1) + ",\n";
+      }
+      ++count;
+    }
+    ret += "\n}";
+    return ret;
+  }
+
   case types::LIST:
     return "<list: size = " + std::to_string(as<list>().size()) + ">";
   case types::STRING:
@@ -259,6 +275,7 @@ std::string value::to_string() const {
     return "<unknown>";
   }
 }
+
 FLOW_NAMESPACE_END
 
 #endif

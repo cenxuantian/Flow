@@ -125,7 +125,7 @@ public:
   }
 
   bool is_null() const;
-  std::string to_string() const;
+  std::string to_string(int level = 0) const;
   void add(value const &v);
   void minus(value const &v);
   void multiply(value const &v);
