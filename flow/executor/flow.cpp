@@ -1,5 +1,6 @@
 #include "args_parser.hpp"
 #include <flow>
+#include <string.h>
 
 int main(int argc, char *argv[]) {
   flow::context ctx;

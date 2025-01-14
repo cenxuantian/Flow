@@ -11,6 +11,6 @@ option(BUILD_EXECUTOR ON)
 
 include_directories(flow/include)
 include(test/CMakeLists.txt)
-include(flow/executor/CmakeLists.txt)
+include(flow/executor/CMakeLists.txt)
 
 
