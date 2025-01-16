@@ -3,7 +3,7 @@
 
 // the state machine of the language
 
-#include "../defs.hpp"
+#include "../type_traits.hpp"
 
 FLOW_NAMESPACE_BEGIN
 
@@ -23,45 +23,26 @@ using number = double;
 using list = std::vector<value>;
 using object = std::unordered_map<std::string, value>;
 
-template <bool Cond, class Type> struct meta_case {
-  static constexpr bool cond = Cond;
-  using type = Type;
-};
-
-template <class Type> struct meta_case_default {
-  static constexpr bool cond = true;
-  using type = Type;
-};
-
-template <class Case, class... Cases> struct meta_select {
-  using type = std::conditional_t<Case::cond, typename Case::type,
-                                  typename meta_select<Cases...>::type>;
-};
-
-template <class Case> struct meta_select<Case> {
-  using type = std::conditional_t<Case::cond, typename Case::type, void>;
-};
-
 template <class T> struct to_value_types {
   using in_type = std::decay_t<T>;
-  using type = typename meta_select<
-      meta_case<std::is_same_v<in_type, const char *>, string>,
-      meta_case<std::is_same_v<in_type, char *>, string>,
-      meta_case<std::is_same_v<in_type, string>, string>,
-      meta_case<std::is_same_v<in_type, list>, list>,
-      meta_case<std::is_same_v<in_type, object>, object>,
-      meta_case<std::is_same_v<in_type, char>, number>,
-      meta_case<std::is_same_v<in_type, unsigned char>, number>,
-      meta_case<std::is_same_v<in_type, short>, number>,
-      meta_case<std::is_same_v<in_type, unsigned short>, number>,
-      meta_case<std::is_same_v<in_type, int>, number>,
-      meta_case<std::is_same_v<in_type, unsigned int>, number>,
-      meta_case<std::is_same_v<in_type, long long>, number>,
-      meta_case<std::is_same_v<in_type, unsigned long long>, number>,
-      meta_case<std::is_same_v<in_type, float>, number>,
-      meta_case<std::is_same_v<in_type, double>, number>,
-      meta_case<std::is_same_v<in_type, function>, function>,
-      meta_case_default<void>>::type;
+  using type = typename traits::meta_select<
+      traits::meta_case<std::is_same_v<in_type, const char *>, string>,
+      traits::meta_case<std::is_same_v<in_type, char *>, string>,
+      traits::meta_case<std::is_same_v<in_type, string>, string>,
+      traits::meta_case<std::is_same_v<in_type, list>, list>,
+      traits::meta_case<std::is_same_v<in_type, object>, object>,
+      traits::meta_case<std::is_same_v<in_type, char>, number>,
+      traits::meta_case<std::is_same_v<in_type, unsigned char>, number>,
+      traits::meta_case<std::is_same_v<in_type, short>, number>,
+      traits::meta_case<std::is_same_v<in_type, unsigned short>, number>,
+      traits::meta_case<std::is_same_v<in_type, int>, number>,
+      traits::meta_case<std::is_same_v<in_type, unsigned int>, number>,
+      traits::meta_case<std::is_same_v<in_type, long long>, number>,
+      traits::meta_case<std::is_same_v<in_type, unsigned long long>, number>,
+      traits::meta_case<std::is_same_v<in_type, float>, number>,
+      traits::meta_case<std::is_same_v<in_type, double>, number>,
+      traits::meta_case<std::is_same_v<in_type, function>, function>,
+      traits::meta_case_default<void>>::type;
 };
 
 class value {

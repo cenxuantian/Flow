@@ -179,17 +179,21 @@ private:
     } else if (current == '=' || current == '-' || current == '+' ||
                current == '/' || current == '*') { // value assignment
       if (!in.has_value()) {
-        ERROR_EXIT("Syntax Error");
-      } else {
-        if (in.value().oper !=
-            keywords::invalid_operator) { // already got a different operator
-          ERROR_EXIT("Syntax Error");
-        } else { // add operator
-          char temp[2] = {current, 0};
-          in.value().oper = temp;
-          script_.seek(script_.next_valid());
-          FLOW_RUNNER_GOTO_STATE(parse_expr, in, end);
+        if (current == '-') { // to catch statement like -1
+          in.emplace();
+          in.value().l_value.store(0);
+        } else {
+          ERROR_EXIT("Syntax Error: No left value in front of an operator.");
         }
+      }
+      if (in.value().oper !=
+          keywords::invalid_operator) { // already got a different operator
+        ERROR_EXIT("Syntax Error: duplicated operator.");
+      } else { // add operator
+        char temp[2] = {current, 0};
+        in.value().oper = temp;
+        script_.seek(script_.next_valid());
+        FLOW_RUNNER_GOTO_STATE(parse_expr, in, end);
       }
     } else if (current == end) // end of this expr
     {

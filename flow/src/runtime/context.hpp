@@ -1,9 +1,9 @@
-#ifndef __FLOW_RUNTIME_CONTEXT_H__
-#define __FLOW_RUNTIME_CONTEXT_H__
+#ifndef __FLOW_RUNTIME_CONTEXT_HPP__
+#define __FLOW_RUNTIME_CONTEXT_HPP__
 
 // the state machine of the language
 
-#include "../types/types_def.hpp"
+#include "./static_storage.hpp"
 
 FLOW_NAMESPACE_BEGIN
 
@@ -11,16 +11,6 @@ struct stack_data {
   value local_storage = object{};
   size_t start_line = 0;
   std::string filename = "";
-};
-
-static object static_storage = {
-    {"print", function([](list const &args) {
-       std::cout << "\033[0m\033[1;33m";
-       for (auto &i : args) {
-         std::cout << i.to_string() << ' ';
-       }
-       std::cout << "\n\033[0m";
-     })},
 };
 
 class context {
