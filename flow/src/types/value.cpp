@@ -213,6 +213,7 @@ void value::mold(value const &v) {
   }
 }
 
+// TODO: should copy all the item if value is object or list
 value value::copy() const { return static_cast<const value &>(*this); }
 
 bool value::operator==(const value &other) const {

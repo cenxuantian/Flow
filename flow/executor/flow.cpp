@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
     while (1) {
       char line[30];
       memset(line, 0, sizeof(line));
+      std::cout << ">> ";
       std::cin.getline(line, sizeof(line));
       flow::core::exec(ctx, line, args);
     }

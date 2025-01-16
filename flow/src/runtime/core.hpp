@@ -49,8 +49,12 @@ struct expr_stack_data {
   std::string oper = keywords::invalid_operator;
 };
 
+/// @brief This class read and analyze the input scripts
 class runner {
 private:
+  /// @brief Execute the operator.
+  /// Use both l_value and r_value as inputs.
+  /// Store the result in l_value.
   void call_oper(expr_stack_data &in) {
     if (in.oper == keywords::invalid_operator) {
       // do nothing
@@ -87,6 +91,9 @@ private:
     in.r_value.swap(temp);
   }
 
+  /// @brief Execute an Flow function
+  /// Use both l_value and r_value as inputs.
+  /// Store the result in l_value.
   void call_fn(expr_stack_data &in) {
     function const &func = in.l_value.as<function>();
     list &args = in.r_value.as<list>();
@@ -96,7 +103,15 @@ private:
       break;
     }
     case function::types::SCRIPT_FN: {
-      /* code */
+      stack_data func_state;
+      func_state.local_storage.as<object>().emplace("__args__",in.r_value.ref());
+      func_state.local_storage.as<object>().emplace("__ret__",value(10));
+      ctx_.push_stack(func_state);
+      std::string & inner_text = in.l_value.as<function>().inner_text;
+      [[maybe_unused]]runner sub_runner(ctx_,inner_text,{});
+      [[maybe_unused]]auto& tt = func_state.local_storage.as<object>()["@ret"];
+      in.l_value.as<function>().out_.store(std::move(tt));
+      ctx_.pop_stack();
       break;
     }
     default:
@@ -104,6 +119,8 @@ private:
     }
   }
 
+  /// @brief The first state, all other states will be routed from here.
+  /// When all other states end, will redirect to this state.
   FLOW_RUNNER_STATE_FUNC_DEF(normal_state) {
     FLOW_RUNNER_STATE_START();
     char current = script_.current_char();
@@ -122,6 +139,11 @@ private:
     }
   }
 
+  /// @brief Parse the functions' input parameters list or an initialize-list
+  /// @param in The input string with out braces. For example, if an input
+  /// parameter of a function is `(1,2,3,4)`, the string `1,2,3,4` should be
+  /// passed into this state as the `in` param.
+  /// @param out return the out list
   FLOW_RUNNER_STATE_FUNC_DEF(parse_list, std::string const &in, list &out) {
     script_stream temp = in;
     std::swap(script_, temp);
@@ -143,24 +165,32 @@ private:
     std::swap(script_, temp);
   }
 
+  /// @brief One of the most important state, parse any kind of statement.
+  /// @param in the input value struct, if no value is passing by previous
+  /// state, it should be std::optional<expr_stack_data>{}.
+  /// (Note:flow::types::UNDEFINED is also regarded as value).
+  /// @param end the end flag of this expr, for functions, it is `,`, for
+  /// others, it it `;`.
   FLOW_RUNNER_STATE_FUNC_DEF(parse_expr, std::optional<expr_stack_data> &in,
                              char end) {
-  [[maybe_unused]] __START_LABLE__:
 
+    // Check if reach the end of the expr
     script_.seek(script_.first_valid());
     if (script_.eof()) {
       if (in.has_value()) {
         call_oper(in.value());
         FLOW_RUNNER_GOTO_PRE_STATE();
       } else {
-        printf("Warning empty expr\n");
         // warning, empty expression
+        printf("Warning: empty expr\n");
+        FLOW_RUNNER_GOTO_PRE_STATE();
       }
     }
 
     char current = script_.current_char();
 
-    if (current == '(') { // function or sub expr
+    // Parse `function param list` or `sub expr`
+    if (current == '(') {
       if (in.has_value()) {
         if (in.value().l_value.type() == types::FUNCTION &&
             in.value().oper == keywords::invalid_operator) { // function
@@ -175,10 +205,14 @@ private:
         }
       } else {
       }
-    } else if (current == '=' || current == '-' || current == '+' ||
-               current == '/' || current == '*') { // value assignment
+    }
+
+    // Parse and excuse operator
+    else if (current == '=' || current == '-' || current == '+' ||
+             current == '/' || current == '*') {
       if (!in.has_value()) {
-        if (current == '-') { // to catch statement like -1
+        // if there is no l_value, then: to catch statement like -1
+        if (current == '-') {
           in.emplace();
           in.value().l_value.store(0);
         } else {
@@ -194,8 +228,10 @@ private:
         script_.seek(script_.next_valid());
         FLOW_RUNNER_GOTO_STATE(parse_expr, in, end);
       }
-    } else if (current == end) // end of this expr
-    {
+    }
+
+    // Parse end of this expr
+    else if (current == end) {
       if (in.has_value()) {
         call_oper(in.value());
         FLOW_RUNNER_GOTO_PRE_STATE();
@@ -205,15 +241,19 @@ private:
 
       script_.seek(script_.next_valid());
       FLOW_RUNNER_GOTO_PRE_STATE();
-    } else if (current == '#') // function
-    {
-    } else if (current == '?') {
-    } else {
+    }
+
+    // Parse conditional statement
+    else if (current == '?') {
+    }
+
+    // Parse other statement
+    else {
       if (!in.has_value()) { // parse l_value
         in.emplace();
         FLOW_RUNNER_GOTO_STATE(parse_value, in.value().l_value); // will seek
         FLOW_RUNNER_GOTO_STATE(parse_expr, in, end);
-      } else { // parse r_value
+      } else { // parse r_value via parsing sub_expr
         ERROR_EXIT_IF(keywords::invalid_operator == in.value().oper,
                       "Expecting a `;`");
         std::optional<expr_stack_data> next_in{}; // empty option
@@ -225,18 +265,30 @@ private:
     }
   }
 
+  /// @brief Parse an value.
+  /// An value can be:
+  /// - string: e.g., "hello world" 'hello world' `hello world`
+  /// - number: e.g., 1 -1
+  /// - symbol: e.g., __global__
+  /// - function: e.g., #{...}
+  /// - function parames, @ret @1 @2 @3 ...
+  /// - list: e.g. [1,2,3,4,5,...]
+  /// - object: { name: value }
   FLOW_RUNNER_STATE_FUNC_DEF(parse_value, value &out) {
     FLOW_RUNNER_STATE_START();
     char current = script_.current_char();
 
-    if (keywords::is_number(current)) {
+    if (keywords::is_number(current)) { // parse number
       out.store(script_.read_full_number());
-    } else if (keywords::is_string_begin_end(current)) {
+    } else if (keywords::is_string_begin_end(current)) { // parse 
       out.store(script_.read_full_string());
-    } else if (current == ':') { // parse a function
+    } 
+    else if(current == '#'){ // parse function
       script_.seek(script_.next_valid());
+      FLOW_RUNNER_RISE_ERROR_IF_END("Syntax error: expecting `{`");
       out.store(function(script_.read_full_bracket()));
-    } else { // get a symbol
+    }
+    else { // get a symbol
       std::string symbol_name = script_.read_full_word();
       out.store(ctx_.get_symbol_value(symbol_name).ref());
     }
