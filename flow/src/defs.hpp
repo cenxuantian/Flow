@@ -14,6 +14,7 @@
   }                                                                            \
   void(0)
 
+#include <algorithm>
 #include <assert.h>
 #include <cstdint>
 #include <fstream>
